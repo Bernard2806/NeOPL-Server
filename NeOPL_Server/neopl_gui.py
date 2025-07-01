@@ -4,8 +4,9 @@ from PyQt6.QtWidgets import (
     QGroupBox, QComboBox
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtGui import QPalette, QColor, QIcon, QPixmap
 import sys
+import os
 
 
 class LanguageManager:
@@ -72,6 +73,73 @@ class LanguageManager:
             self.current_language = language
 
 
+class IconManager:
+    """Manejador de iconos para la aplicación"""
+    
+    @staticmethod
+    def create_icon_from_text(text, size=16, color="white"):
+        """Crea un icono simple a partir de texto (para cuando no hay archivos de icono)"""
+        pixmap = QPixmap(size, size)
+        pixmap.fill(QColor(58, 134, 255))  # Color de fondo azul
+        
+        from PyQt6.QtGui import QPainter, QFont
+        painter = QPainter(pixmap)
+        painter.setPen(QColor(color))
+        
+        font = QFont()
+        font.setPointSize(size // 2)
+        font.setBold(True)
+        painter.setFont(font)
+        
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, text)
+        painter.end()
+        
+        return QIcon(pixmap)
+    
+    @staticmethod
+    def load_icon(icon_path, fallback_text="?"):
+        """Carga un icono desde archivo o crea uno de respaldo"""
+        if os.path.exists(icon_path):
+            return QIcon(icon_path)
+        else:
+            return IconManager.create_icon_from_text(fallback_text)
+    
+    @staticmethod
+    def get_system_icon(icon_name):
+        """Obtiene iconos del sistema si están disponibles"""
+        # Mapeo de nombres a iconos del sistema
+        system_icons = {
+            "play": "media-playback-start",
+            "stop": "media-playback-stop",
+            "clear": "edit-clear",
+            "about": "help-about",
+            "log": "text-x-generic",
+            "filter": "view-filter",
+            "autoscroll": "go-down",
+            "language": "preferences-desktop-locale"
+        }
+        
+        system_name = system_icons.get(icon_name)
+        if system_name:
+            icon = QIcon.fromTheme(system_name)
+            if not icon.isNull():
+                return icon
+        
+        # Si no se encuentra el icono del sistema, crear uno de texto
+        fallback_texts = {
+            "play": "▶",
+            "stop": "⏹",
+            "clear": "🗑",
+            "about": "?",
+            "log": "📝",
+            "filter": "🔍",
+            "autoscroll": "↓",
+            "language": "🌐"
+        }
+        
+        return IconManager.create_icon_from_text(fallback_texts.get(icon_name, "?"))
+
+
 class OPLServerGUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -82,8 +150,23 @@ class OPLServerGUI(QWidget):
         self.setWindowTitle(self.lang_manager.get_text("title"))
         self.resize(800, 500)
         
+        # Establecer icono de la aplicación
+        self.set_window_icon()
+        
         self.init_ui()
         self.apply_modern_theme()
+
+    def set_window_icon(self):
+        """Establece el icono de la ventana de la aplicación"""
+        # Intentar cargar el icono desde archivo
+        icon_path = "app_icon.png"  # o "app_icon.ico"
+        
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        else:
+            # Crear un icono de respaldo
+            app_icon = IconManager.create_icon_from_text("N", size=32, color="white")
+            self.setWindowIcon(app_icon)
 
     def apply_modern_theme(self):
         """Aplica una paleta de colores moderna y elegante"""
@@ -142,10 +225,11 @@ class OPLServerGUI(QWidget):
             }
             
             QPushButton {
-                padding: 6px 12px;
+                padding: 8px 16px;
                 border: 1px solid #404448;
                 border-radius: 4px;
                 background-color: #30343E;
+                text-align: left;
             }
             
             QPushButton:hover {
@@ -229,13 +313,21 @@ class OPLServerGUI(QWidget):
         
         self.language_label = QLabel(self.lang_manager.get_text("language"))
         
-        # Botones de log
+        # Botones de log con iconos
         self.enable_log = QPushButton(self.lang_manager.get_text("enable_log"))
+        self.enable_log.setIcon(IconManager.get_system_icon("log"))
+        
         self.log_filter = QCheckBox(self.lang_manager.get_text("log_filter"))
+        # Los checkboxes no suelen tener iconos, pero se puede añadir si se desea
+        
         self.log_autoscroll = QCheckBox(self.lang_manager.get_text("log_autoscroll"))
         self.log_autoscroll.setChecked(True)
+        
         self.clear_log = QPushButton(self.lang_manager.get_text("clear_log"))
+        self.clear_log.setIcon(IconManager.get_system_icon("clear"))
+        
         self.about = QPushButton(self.lang_manager.get_text("about"))
+        self.about.setIcon(IconManager.get_system_icon("about"))
 
         # Puerto y servidor
         self.port_label = QLabel(self.lang_manager.get_text("port"))
@@ -243,6 +335,7 @@ class OPLServerGUI(QWidget):
         self.port_input.setFixedWidth(80)
 
         self.server_button = QPushButton(self.lang_manager.get_text("server_stopped"))
+        self.server_button.setIcon(IconManager.get_system_icon("play"))
         self.server_button.setMinimumWidth(250)
 
         # Tabla de logs
@@ -344,6 +437,10 @@ class OPLServerGUI(QWidget):
         self.server_running = not self.server_running
         server_text = "server_running" if self.server_running else "server_stopped"
         self.server_button.setText(self.lang_manager.get_text(server_text))
+        
+        # Cambiar el icono del botón según el estado
+        icon_name = "stop" if self.server_running else "play"
+        self.server_button.setIcon(IconManager.get_system_icon(icon_name))
 
 
 if __name__ == "__main__":
